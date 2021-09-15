@@ -18,6 +18,26 @@ library(tidyverse)
 library(thematic)
 library(shinythemes)
 
+# Sets max file size to 30 Mb
+options(shiny.maxRequestSize = 30*1024^2, scipen = 999)
+
+# Package Dependency
+packages = c("shiny",
+             "shinyBS",
+             "tidyverse",
+             "thematic",
+             "shinythemes",
+             )
+
+package.check <- lapply(
+  packages,
+  FUN = function(x) {
+    if (!require(x, character.only = TRUE)) {
+      install.packages(x, dependencies = TRUE)
+      library(x, character.only = TRUE)
+    }
+  }
+)
 
 
 source("./functions/autoclean.R")
