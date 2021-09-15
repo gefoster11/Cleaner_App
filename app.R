@@ -20,8 +20,8 @@ packages = c("shiny",
              "shinyBS",
              "tidyverse",
              "thematic",
-             "shinythemes",
-             )
+             "shinythemes"
+            )
 
 package.check <- lapply(
   packages,
