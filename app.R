@@ -11,12 +11,6 @@
 # 'exclude' which provides a TRUE/FALSE for exclusion and can be used as input data for
 # your individual subject analysis.
 
-library(shiny)
-library(shinyBS)
-library(tidyverse)
-
-library(thematic)
-library(shinythemes)
 
 # Sets max file size to 30 Mb
 options(shiny.maxRequestSize = 30*1024^2, scipen = 999)
