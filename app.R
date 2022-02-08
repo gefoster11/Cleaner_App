@@ -335,11 +335,15 @@ server <- function(input, output) {
     
     # ---- Downloadable csv of selected dataset ----
     output$save <- downloadHandler(
+      
         filename = function() {
             paste(tools::file_path_sans_ext(input$file), "-clean.csv", sep = "")
         },
         content = function(file) {
-            write.csv(values$df2, file, row.names = FALSE)
+          df <- values$df2
+          df$value[df$exclude == TRUE] <- NA
+          df <- df %>% select(!exclude) %>% pivot_wider() %>% rename(Time = time)
+          write.csv(df, file, row.names = FALSE)
         }
     )
     
