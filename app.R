@@ -342,7 +342,8 @@ server <- function(input, output) {
         content = function(file) {
           df <- values$df2
           df$value[df$exclude == TRUE] <- NA
-          df <- df %>% select(!exclude) %>% pivot_wider() %>% rename(Time = time)
+          df <- df %>% select(!exclude) %>% pivot_wider()
+          colnames(df)[1] <- "Time"
           write.csv(df, file, row.names = FALSE)
         }
     )
