@@ -289,7 +289,7 @@ server <- function(input, output) {
         
         req(input$load)
         
-        browser()
+        #browser()
       
         clean <- values$df2[values$df2$exclude != TRUE, ]
         removed <- values$df2[values$df2$exclude == TRUE, ]
