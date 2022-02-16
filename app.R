@@ -289,6 +289,8 @@ server <- function(input, output) {
         
         req(input$load)
         
+        browser()
+      
         clean <- values$df2[values$df2$exclude != TRUE, ]
         removed <- values$df2[values$df2$exclude == TRUE, ]
         
@@ -344,6 +346,7 @@ server <- function(input, output) {
           df$value[df$exclude == TRUE] <- NA
           df <- df %>% select(!exclude) %>% pivot_wider()
           colnames(df)[1] <- "Time"
+          
           write.csv(df, file, row.names = FALSE)
         }
     )
