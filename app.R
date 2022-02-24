@@ -175,7 +175,8 @@ server <- function(input, output) {
         df <- read.csv(input$file$datapath,
                        header = TRUE,
                        sep = input$sep,
-                       quote = '"')
+                       quote = '"',
+                       na.strings = "#NUM!")
         
         df$exclude <- FALSE # create exclude column and set all to FALSE
         
