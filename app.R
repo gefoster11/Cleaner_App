@@ -38,7 +38,7 @@ source("./functions/autoclean.R")
 
 # ---- Define UI for data upload app ----
 ui <- fluidPage(
-  theme = shinytheme("united"),
+  #theme = shinytheme("united"),
     # ---- App title ----
     titlePanel("Data Cleaner"),
     
