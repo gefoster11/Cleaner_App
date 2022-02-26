@@ -23,7 +23,7 @@ autoclean <- function(df, time_ave) {
 
       for (i in seq_along(df$time)) {
 
-      x <- df %>% filter(time >= df$time[[i]] - time_ave/2 & time <= df$time[[i]] + time_ave/2)
+      x <- df %>% dplyr::filter(time >= df$time[[i]] - time_ave/2 & time <= df$time[[i]] + time_ave/2)
       
       Q1 <- quantile(x$value, probs = 0.25, na.rm = TRUE)
       Q3 <- quantile(x$value, probs = 0.75, na.rm = TRUE)
