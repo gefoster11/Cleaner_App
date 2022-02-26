@@ -176,7 +176,8 @@ server <- function(input, output) {
                        header = TRUE,
                        sep = input$sep,
                        quote = '"',
-                       na.strings = "#NUM!")
+                       na.strings = "#NUM!",
+                       fileEncoding="UTF-8-BOM")
         
         df$exclude <- FALSE # create exclude column and set all to FALSE
         
