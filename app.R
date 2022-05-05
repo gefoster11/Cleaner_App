@@ -171,13 +171,14 @@ server <- function(input, output) {
         
         req(input$file$datapath)
         
+        #browser()      
+      
         tryCatch( {
-        df <- read.csv(input$file$datapath,
-                       header = TRUE,
-                       sep = input$sep,
-                       quote = '"',
-                       na.strings = "#NUM!",
-                       fileEncoding="UTF-8-BOM")
+
+        df <- read_delim(input$file$datapath,
+                       delim = input$sep,
+                       na = c("", "#NUM!", "NA"))
+        
         
         df$exclude <- FALSE # create exclude column and set all to FALSE
         
