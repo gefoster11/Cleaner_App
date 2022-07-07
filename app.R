@@ -13,14 +13,16 @@
 
 
 # Sets max file size to 30 Mb
-options(shiny.maxRequestSize = 30*1024^2, scipen = 999)
+options(shiny.maxRequestSize = 30*1024^2, scipen = 999,
+        shiny.launch.browser = .rs.invokeShinyWindowExternal)
 
 # Package Dependency
 packages = c("shiny",
              "shinyBS",
              "tidyverse",
              "thematic",
-             "shinythemes"
+             "shinythemes",
+             "remotes"
             )
 
 package.check <- lapply(
@@ -31,10 +33,17 @@ package.check <- lapply(
       library(x, character.only = TRUE)
     }
   }
+  
+  
 )
 
+# Package Dependency - Install plotly from github
+if (!require("plotly", character.only = TRUE)) {
+  remotes::install_github("ropensci/plotly")
+  library("plotly", character.only = TRUE)
+}
 
-source("./functions/autoclean.R")
+source("./functions/autoclean_V2.R")
 
 # ---- Define UI for data upload app ----
 ui <- fluidPage(
@@ -109,13 +118,7 @@ ui <- fluidPage(
             
             tags$hr(),
             
-            # ---- Input: ManualClean ----
-            actionButton("toggle", "Remove Points", width = "100%"),
-            bsTooltip("toggle", "click to exclude points from your plot selection",
-                      "right", options = list(container = "body")),
-            
-            tags$hr(),
-            
+            # ----Input: Reset ----
             actionButton("reset", "Reset", width = "100%"),
             bsTooltip("reset", "click to reset excluded points",
                       "right", options = list(container = "body")),
@@ -143,11 +146,7 @@ ui <- fluidPage(
                         tabPanel("Selected Data", dataTableOutput("data2")),
                         tabPanel("Plot", 
                                  numericInput("height", label = "Plot Height", value = 800, width = '10%'),
-                                 plotOutput("plot", 
-                                                    click = "plot_click",
-                                                    brush = brushOpts(
-                                                        id = "plot_brush"
-                                                    )))
+                                 plotlyOutput("plot"))
                         )
             )
     )
@@ -227,24 +226,27 @@ server <- function(input, output) {
 
     # ---- Observe: autoclean ----
     observeEvent(input$AutoClean, {
-        withProgress(message = "Calculation in Progress", {
+      
+      withProgress(message = "Calculation in Progress", {
             df <- values$df2
             
             time_ave <- as.numeric(input$time_ave) # convert string to numeric
+            var_num <- length(unique(df$name))
             
             df <- df %>% 
-                group_by(name) %>% 
-                nest() # group by variable name and nest
-            
-            var_num <- length(df$name)
-            
-            df <- df %>% 
-                mutate(data = map(data, function(.x) { # adds a progress bar which increments with each variable iteration
-                    incProgress(amount = 1/var_num)
-                    autoclean(.x, time_ave)
-                } )) %>% 
-                unnest(data) # apply function autoclean.R    
-            
+              group_by(name) %>% 
+              nest() %>% 
+              mutate(data = map(.x = data, ~{
+              
+                incProgress(amount = 1/var_num)
+              
+                    .x %>% mutate(exclude = map2_lgl(.x = .x$time, 
+                                               .y = .x$value, 
+                                               .f = outliers, 
+                                               df = .x, 
+                                               time_ave = time_ave))
+            })) %>%
+              unnest(data)
         }
         )
         values$df2 <- df # set to reactive value df2
@@ -288,55 +290,133 @@ server <- function(input, output) {
     })
     
     # ---- Output: Create Plot ----
-    observe(output$plot <- renderPlot({
+    output$plot <- renderPlotly({
         
         req(input$load)
         
         #browser()
+        df <- values$df2 
+        
+        max <- max(df$time)
+        min <- min(df$time)
+        
+        df <- df %>% 
+            mutate(cut = cut(time, breaks = seq(from = min, to = max + as.numeric(input$time_ave), by = as.numeric(input$time_ave)), include.lowest = TRUE)) %>%
+                group_by(name, cut) %>% nest() %>% mutate(
+                  time_mean = map(data, ~{
+                    mean(.x$time[.x$exclude != TRUE], na.rm = TRUE)
+                  }),
+                  time_sd = map(data, ~{
+                    sd(.x$time[.x$exclude != TRUE], na.rm = TRUE)
+                  }),
+                  value_mean = map(data, ~{
+                    mean(.x$value[.x$exclude != TRUE], na.rm = TRUE)
+                  }),
+                  value_sd = map(data, ~{
+                    sd(.x$value[.x$exclude != TRUE], na.rm = TRUE)
+                  })
+                ) %>% unnest(cols = c(data, time_mean, time_sd, value_mean, value_sd)) %>%
+          mutate(ymin = value_mean - value_sd, 
+                 ymax = value_mean + value_sd,
+                 symbols = factor(exclude, levels = c(FALSE, TRUE), labels = c("circle", "diamond")),
+                 colors = factor(exclude, levels = c(FALSE, TRUE), labels = c("black", "red")))
+        
+        df[is.na(df)] <- NA
+        
+        panel <- . %>%
+          plot_ly(height = input$height, type = "scatter", mode = "markers") %>%
+           add_markers(
+             x = ~time,
+             y = ~value,
+             symbol = ~exclude,
+             marker = list(
+                        size = 5
+                      ),
+             customdata = ~name,
+           ) %>%
+          add_lines(x = ~time_mean,
+                    y = ~value_mean,
+                    line = list(shape = "hvh"),
+                    showlegend = FALSE
+                    ) %>%
+          add_lines(x = ~time_mean,
+                      y = ~ymin,
+                      line = list(color = "grey", dash = 'dot', width = 1, shape = "hvh"),
+                    showlegend = FALSE
+                      ) %>%
+          add_lines(x = ~time_mean,
+                    y = ~ymax,
+                    line = list(color = "grey", dash = 'dot', width = 1, shape = "hvh"),
+                    showlegend = FALSE
+                     ) %>%
+          add_annotations(
+            text = ~unique(name),
+            x = 0.5, 
+            y = 1,
+            yref = "paper",
+            xref = "paper",
+            yanchor = "bottom",
+            showarrow = FALSE,
+            font = list(size = 15)
+          ) %>%
+          layout(
+            showlegend = FALSE,
+            shapes = list(
+              type = "rect",
+              x0 = 0,
+              x1 = 1,
+              xref = "paper",
+              y0 = 0,
+              y1 = 16,
+              yanchor = 1,
+              yref = "paper",
+              ysizemode = "pixel",
+              fillcolor = toRGB("gray80"),
+              line = list(color= "transparent")
+            )
+          )
+        
+        
+        df %>% 
+          group_by(name) %>%
+          do(p = panel(.)) %>%
+            subplot(nrows = NROW(.), shareX = TRUE)
+        
+        })
+    
+    
+    # ---- Observe: plot click ----
+    observe({
+      #browser()
+      eventData <- event_data("plotly_click")
       
-        clean <- values$df2[values$df2$exclude != TRUE, ]
-        removed <- values$df2[values$df2$exclude == TRUE, ]
-        
-        max <- clean$time %>% max()
-        min <- clean$time %>% min()
-        
-        summary <- clean %>% 
-            mutate(cut = cut(time, breaks = seq(from = min, to = max + 30, by = 30), include.lowest = TRUE)) %>%
-                group_by(name, cut) %>% 
-                    summarise_at(c("time", "value"), list("mean" = mean, "sd" = sd), na.rm = TRUE)
-    
-        ggplot(clean, aes(time, value)) + 
-            geom_point(shape = 21, alpha = 0.65, fill = "black", color = "black") +
-              geom_point(data = removed, shape = 21, fill = "red", color = "red", alpha = 0.5) +
-               geom_ribbon(data = summary, aes(x = time_mean, y = value_mean, ymin = value_mean-value_sd, 
-                                            ymax = value_mean+value_sd), fill = "seagreen3", alpha = 0.3) +   
-                geom_step(data = summary, aes(x = time_mean, y = value_mean), size = 1) +
-                facet_wrap(~name, scales = "free", ncol = 1)
-               
-        }, height = input$height))
-    
-    
-    
-    
-    
-    # ---- Toggle points that are clicked ----
-    observeEvent(input$plot_click, {
-        df <- values$df2
-        res <- nearPoints(df, input$plot_click, allRows = TRUE, maxpoints = 1)
-        df$exclude <- xor(df$exclude, res$selected_)
-        
-        values$df2 <- df
-        
+       if ("customdata" %in% names(eventData)) {
+         df <- isolate(values$df2)
+         name <- eventData$customdata
+         time <- eventData$x
+         
+         df$exclude[df$name == name & df$time == time] <- !df$exclude[df$name == name & df$time == time]
+         
+         values$df2 <- df
+      }
     })
     
     # ---- Toggle points that are brushed, when button is clicked ----
-    observeEvent(input$toggle, {
-        df <- values$df2
-        res <- brushedPoints(df, input$plot_brush, allRows = TRUE)
-        df$exclude <- xor(df$exclude, res$selected_)
+    observe({
+      #browser()
+      eventData <- event_data("plotly_selected")
+      
+      if ("customdata" %in% names(eventData)) {
+        df <- isolate(values$df2)
+        name <- eventData$customdata %>% unlist()
+        time <- eventData$x
+        
+        df$exclude[df$name %in% name & df$time %in% time] <- !df$exclude[df$name %in% name & df$time %in% time]
         
         values$df2 <- df
+      }
     })
+
     
     # ---- Downloadable csv of selected dataset ----
     output$save <- downloadHandler(
