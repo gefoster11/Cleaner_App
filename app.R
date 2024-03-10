@@ -153,8 +153,12 @@ ui <- fluidPage(
 )
 
 # ---- Define server logic ----
-server <- function(input, output) {
+server <- function(input, output, session) {
     
+  session$onSessionEnded(function() {
+    stopApp()
+  })
+  
     # ---- initialize reactive values ----
     values <- reactiveValues(
         df = NULL,
