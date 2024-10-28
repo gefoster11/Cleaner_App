@@ -13,8 +13,8 @@
 
 
 # Sets max file size to 30 Mb
-options(shiny.maxRequestSize = 30*1024^2, scipen = 999,
-        shiny.launch.browser = .rs.invokeShinyWindowExternal)
+options(shiny.maxRequestSize = 30*1024^2, scipen = 999)
+        #shiny.launch.browser = .rs.invokeShinyWindowExternal)
 
 # Package Dependency
 packages = c("shiny",
@@ -22,7 +22,8 @@ packages = c("shiny",
              "tidyverse",
              "thematic",
              "shinythemes",
-             "remotes"
+             "remotes",
+             "DT"
             )
 
 package.check <- lapply(
@@ -268,7 +269,7 @@ server <- function(input, output, session) {
     
     
     # ---- Output: Parsing Table ----    
-    output$data <- renderDataTable({
+    output$data <- renderDT({
         
         req(input$file)    
         
@@ -281,7 +282,7 @@ server <- function(input, output, session) {
     })
     
     # ---- Output: Create Selected Data Table ----
-    output$data2 <- renderDataTable({
+    output$data2 <- renderDT({
         
         req(input$load)    
         
@@ -298,7 +299,7 @@ server <- function(input, output, session) {
         
         req(input$load)
         
-        #browser()
+       # browser()
         df <- values$df2 
         
         max <- max(df$time)
